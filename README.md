@@ -59,7 +59,7 @@ Netlify works the same way (build `npm run build`, publish `dist`). For GitHub P
 - Open any problem directly by URL, e.g. `…/#tf=K/(s(s%2B3)(s%5E2%2B2s%2B2))`, or use **Copy link**.
 - **Step-by-step** mode is meant for presenting: use ← → to reveal R1 … R7 and then the Routh array. The plot shows only what has been derived so far.
 - **Export PDF** produces an A4-landscape handout (table, Routh array, plot with legend).
-- The *Book Table 4.2* entries (a), (c), (d), (k), (o), (p) come from the course. The other letters in the examples list are classic shapes labelled **Gallery**.
+- The examples list contains every shape (a)–(p) of the book's **Table 4.2 "Some Root Locus Plots"**, with numbers chosen to reproduce each sketch, plus more classic shapes and the special Routh cases.
 
 ## Known limitations
 - Time delays (e^{−sT}) and symbolic parameters other than K are out of scope. Coefficients must be numbers (decimals are converted to exact rationals).
