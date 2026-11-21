@@ -1,0 +1,26 @@
+name: CI
+
+# Quality gate for every push / pull request. Deployment is handled by Vercel's Git integration.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: pip install control numpy scipy
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test # Vitest engine suite + python-control cross-check (45 cases, 1e-6)
+      - run: npm run build
