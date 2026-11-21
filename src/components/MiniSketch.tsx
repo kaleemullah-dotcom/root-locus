@@ -3,6 +3,7 @@ import type { Complex, Solution, ViewBox } from '../engine';
 import { autoView, featureBox } from '../engine/view';
 import type { RuleId } from '../lib/content';
 import { COL, arrowHead, branchPath, makePlane, type Plane } from '../plot/plane';
+import { rich } from './MainPlot';
 
 const W = 176,
   H = 118;
@@ -43,18 +44,18 @@ function pz(sol: Solution, P: Plane, out: JSX.Element[], labels: boolean): void 
     let pi = 0,
       zi = 0;
     sol.ol.polesM.forEach((r, i) => {
-      const names = Array.from({ length: r.mult }, () => `P${++pi}`).join(',');
+      const names = Array.from({ length: r.mult }, () => `P_${++pi}`).join(',');
       out.push(
         <text key={`pl${i}`} x={P.X(r.z.re) - 3} y={P.Y(r.z.im) - 7 - (i % 2) * 9} fontSize={8.5} fill="#222">
-          {names}
+          {rich(names)}
         </text>,
       );
     });
     sol.ol.zerosM.forEach((r, i) => {
-      const names = Array.from({ length: r.mult }, () => `z${++zi}`).join(',');
+      const names = Array.from({ length: r.mult }, () => `z_${++zi}`).join(',');
       out.push(
         <text key={`zl${i}`} x={P.X(r.z.re) + 4} y={P.Y(r.z.im) + 12} fontSize={8.5} fill="#222">
-          {names}
+          {rich(names)}
         </text>,
       );
     });
@@ -85,6 +86,20 @@ function segments(sol: Solution, P: Plane, out: JSX.Element[], animate: boolean)
       );
     });
   });
+}
+
+/** Horizontal dashed reference + dotted arc from 0° to `deg` with an arrowhead showing the sense. */
+function miniArc(P: Plane, at: Complex, deg: number, color: string, out: JSX.Element[], key: string, r = 13): void {
+  const cx = P.X(at.re),
+    cy = P.Y(at.im);
+  const t = (deg * Math.PI) / 180;
+  out.push(<line key={`${key}h`} x1={cx} y1={cy} x2={cx + r + 8} y2={cy} stroke="#495057" strokeWidth={0.9} strokeDasharray="3 2" />);
+  const fx = cx + r * Math.cos(t),
+    fy = cy - r * Math.sin(t);
+  out.push(<path key={`${key}a`} d={`M${cx + r} ${cy}A${r} ${r} 0 0 ${deg > 0 ? 0 : 1} ${fx} ${fy}`} fill="none" stroke={color} strokeWidth={1.2} strokeDasharray="1.5 2" />);
+  const dx = deg > 0 ? -Math.sin(t) : Math.sin(t),
+    dy = deg > 0 ? -Math.cos(t) : Math.cos(t);
+  out.push(<path key={`${key}p`} d={arrowHead(fx - dx * 4, fy - dy * 4, fx, fy, 5)} fill={color} />);
 }
 
 function asymptotes(sol: Solution, P: Plane, out: JSX.Element[]): void {
@@ -118,11 +133,14 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
       pz(sol, P, out, false);
       desc = 'Real-axis segments with arrows for increasing K.';
       break;
-    case 'R3':
+    case 'R3': {
       asymptotes(sol, P, out);
       pz(sol, P, out, false);
-      desc = 'Asymptotes.';
+      const a0 = sol.r3.angles.map((a) => a.deg).filter((d) => d > 1e-9 && d < 180 - 1e-9).sort((x, y) => x - y)[0];
+      if (a0 !== undefined && sol.r4.sigma !== null) miniArc(P, { re: sol.r4.sigma, im: 0 }, a0, COL.asym, out, 'r3arc', 14);
+      desc = 'Asymptotes with the angle measured from the positive real axis.';
       break;
+    }
     case 'R4':
       asymptotes(sol, P, out);
       pz(sol, P, out, false);
@@ -171,6 +189,7 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
           const [s0, s1] = arriving ? [e, p] : [p, e];
           out.push(<line key={`${key}${sg}`} x1={P.X(s0.re)} y1={P.Y(s0.im)} x2={P.X(s1.re)} y2={P.Y(s1.im)} stroke={COL.locus} strokeWidth={1.6} />);
           out.push(<path key={`${key}h${sg}`} d={arrowHead(P.X(s0.re), P.Y(s0.im), P.X(s1.re), P.Y(s1.im), 6)} fill={COL.locus} />);
+          if (at.im !== 0) miniArc(P, p, sg * a, COL.locus, out, `${key}arc${sg}`);
         });
       sol.r6.departures.forEach((d, i) => d.angles.forEach((a, j) => draw(d.at, a, false, `d${i}-${j}`)));
       sol.r6.arrivals.forEach((d, i) => d.angles.forEach((a, j) => draw(d.at, a, true, `r${i}-${j}`)));

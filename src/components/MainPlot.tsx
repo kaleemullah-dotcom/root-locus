@@ -21,7 +21,41 @@ import {
 export type KMode = 'pos' | 'neg' | 'both';
 
 /** Colours for the K < 0 (complementary) locus. */
-export const NEG = { locus: '#0c8599', asym: '#3bc9db' } as const;
+export const NEG = { locus: '#0c8599', asym: '#22b8cf', mark: '#0b7285', fill: '#66d9e8' } as const;
+
+/**
+ * Render label text where `_x` (one letter or a run of digits) is a subscript: P_1, θ_d, K_x.
+ * Uses dy shifts so it survives SVG export and svg2pdf.
+ */
+export function rich(text: string): JSX.Element[] {
+  const out: JSX.Element[] = [];
+  const re = /_([0-9]+|[a-zA-Z])/g;
+  let last = 0,
+    m: RegExpExecArray | null,
+    i = 0,
+    down = false;
+  const push = (t: string): void => {
+    if (!t) return;
+    out.push(
+      <tspan key={i++} dy={down ? -3.5 : undefined}>
+        {t}
+      </tspan>,
+    );
+    down = false;
+  };
+  while ((m = re.exec(text))) {
+    push(text.slice(last, m.index));
+    out.push(
+      <tspan key={i++} dy={down ? 0 : 3.5} fontSize="0.78em">
+        {m[1]}
+      </tspan>,
+    );
+    down = true;
+    last = re.lastIndex;
+  }
+  push(text.slice(last));
+  return out;
+}
 
 export interface MainPlotHandle {
   svg: () => SVGSVGElement | null;
@@ -36,6 +70,8 @@ interface Props {
   baseView?: ViewBox;
   /** closed-loop poles at the slider K */
   clPoles?: Complex[] | null;
+  /** the simulated K is negative (closed-loop dots in the K < 0 colour) */
+  clNegative?: boolean;
   highlight?: RuleId | null;
   /** teach mode: show only features of rules ≤ reveal */
   reveal?: number;
@@ -54,11 +90,11 @@ const FONT = 'Inter, Segoe UI, Arial, sans-serif';
 const finite = (z: Complex): boolean => Number.isFinite(z.re) && Number.isFinite(z.im);
 
 interface LegendItem {
-  kind: 'pole' | 'zero' | 'locus' | 'neg' | 'asym' | 'nasym' | 'centroid' | 'brk' | 'cross' | 'cl';
+  kind: 'pole' | 'zero' | 'locus' | 'neg' | 'asym' | 'nasym' | 'centroid' | 'brk' | 'cross' | 'nbrk' | 'ncross' | 'ajw' | 'cl' | 'ncl';
   label: string;
 }
 
-function legendItems(sol: Solution, solNeg: Solution | null | undefined, mode: KMode, reveal: number, cl: boolean): LegendItem[] {
+function legendItems(sol: Solution, solNeg: Solution | null | undefined, mode: KMode, reveal: number, cl: boolean, clNeg = false): LegendItem[] {
   const pos = mode !== 'neg',
     neg = mode !== 'pos' && !!solNeg;
   const it: LegendItem[] = [{ kind: 'pole', label: 'Open-loop poles' }];
@@ -70,9 +106,12 @@ function legendItems(sol: Solution, solNeg: Solution | null | undefined, mode: K
     if (neg) it.push({ kind: 'nasym', label: mode === 'both' ? 'Asymptotes K < 0' : 'Asymptotes' });
     it.push({ kind: 'centroid', label: 'Centroid σ' });
   }
-  if (reveal >= 5 && ((pos && sol.r5.accepted.length) || (neg && solNeg?.r5.accepted.length))) it.push({ kind: 'brk', label: 'Breakaway / entry' });
-  if (reveal >= 7 && ((pos && sol.cross.crossings.length) || (neg && solNeg?.cross.crossings.length))) it.push({ kind: 'cross', label: 'jω crossing' });
-  if (cl) it.push({ kind: 'cl', label: 'Closed-loop poles at K' });
+  if (reveal >= 5 && pos && sol.r5.accepted.length) it.push({ kind: 'brk', label: mode === 'both' ? 'Break point K > 0' : 'Breakaway / entry' });
+  if (neg && solNeg?.r5.accepted.length) it.push({ kind: 'nbrk', label: mode === 'both' ? 'Break point K < 0' : 'Breakaway / entry' });
+  if (reveal >= 7 && pos && sol.cross.crossings.length) it.push({ kind: 'cross', label: mode === 'both' ? 'jω crossing K > 0' : 'jω crossing' });
+  if (neg && solNeg?.cross.crossings.length) it.push({ kind: 'ncross', label: mode === 'both' ? 'jω crossing K < 0' : 'jω crossing' });
+  if (sol.ol.q >= 2 && reveal >= 3) it.push({ kind: 'ajw', label: 'Asymptote ∩ jω axis' });
+  if (cl) it.push({ kind: clNeg ? 'ncl' : 'cl', label: 'Closed-loop poles at K' });
   return it;
 }
 
@@ -96,6 +135,13 @@ function legendGlyph(kind: LegendItem['kind'], x: number, y: number): JSX.Elemen
       return <circle cx={x + 7} cy={y} r={4.2} fill={COL.brk} />;
     case 'cross':
       return <circle cx={x + 7} cy={y} r={4.2} fill={COL.cross} />;
+    case 'nbrk':
+    case 'ncross':
+      return <circle cx={x + 7} cy={y} r={4.2} fill={NEG.mark} />;
+    case 'ajw':
+      return <circle cx={x + 7} cy={y} r={3.8} fill="#fff" stroke={COL.asym} strokeWidth={1.8} />;
+    case 'ncl':
+      return <circle cx={x + 7} cy={y} r={5} fill={NEG.fill} stroke={NEG.mark} strokeWidth={1.2} />;
     default:
       return <circle cx={x + 7} cy={y} r={5} fill="#fab005" stroke="#212529" strokeWidth={1.2} />;
   }
@@ -136,6 +182,7 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
     kMode = 'pos',
     baseView,
     clPoles,
+    clNegative = false,
     highlight = null,
     reveal = 7,
     title,
@@ -176,16 +223,16 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
   const W = width;
   const small = W < 520;
   const items = useMemo(
-    () => (legend ? legendItems(sol, solNeg, kMode, reveal, !!clPoles) : []),
-    [legend, sol, solNeg, kMode, reveal, clPoles],
+    () => (legend ? legendItems(sol, solNeg, kMode, reveal, !!clPoles, clNegative) : []),
+    [legend, sol, solNeg, kMode, reveal, clPoles, clNegative],
   );
   const showTitle = !!title && !small;
   const titleH = showTitle ? 24 : 6;
   const lg = useMemo(() => layoutLegend(items, W, small ? 44 : 54, titleH + 12, small), [items, W, small, titleH]);
   const pad = { l: small ? 44 : 54, r: small ? 10 : 14, t: titleH + (items.length ? lg.height + 8 : 6), b: small ? 42 : 46 };
-  let H = Math.round(Math.max(300, Math.min(660, small ? W * 0.95 : W / 1.38)));
+  let H = Math.round(Math.max(300, Math.min(760, small ? W * 0.95 : W / 1.28)));
   // keep the plot within one screen on desktop so the controls stay visible
-  if (!fixedWidth && !small) H = Math.min(H, Math.max(380, winH - 150));
+  if (!fixedWidth && !small) H = Math.min(H, Math.max(420, winH - 100));
   H += pad.t - 34;
   const P: Plane = useMemo(() => makePlane(W, H, view ?? initialView, pad), [W, H, view, initialView, pad.l, pad.r, pad.t, pad.b]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -324,7 +371,7 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
           {scene.body}
           {clPoles &&
             clPoles.filter(finite).map((z, i) => (
-              <circle key={i} cx={P.X(z.re)} cy={P.Y(z.im)} r={7} fill={z.re > 1e-9 ? '#fa5252' : '#fab005'} stroke="#212529" strokeWidth={1.5} />
+              <circle key={i} cx={P.X(z.re)} cy={P.Y(z.im)} r={7} fill={z.re > 1e-9 ? '#fa5252' : clNegative ? NEG.fill : '#fab005'} stroke={clNegative ? NEG.mark : '#212529'} strokeWidth={1.5} />
             ))}
           {hl?.over}
         </g>
@@ -378,6 +425,8 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
 interface LayerStyle {
   locus: string;
   asym: string;
+  brk: string;
+  cross: string;
   /** label suffix (e.g. " (K<0)") */
   tag: string;
   /** −1 for the K < 0 analysis (its gains are reported as K' = −K) */
@@ -437,6 +486,38 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
   [...ol.poles, ...ol.zeros].forEach((z) => labels.reservePoint(P.X(z.re), P.Y(z.im), 8));
   const inView = (z: Complex): boolean => z.re >= v.x0 && z.re <= v.x1 && z.im >= v.y0 && z.im <= v.y1;
 
+  /**
+   * Angle annotation at point `at`: dashed horizontal reference, the direction ray with arrow,
+   * a dotted arc from 0° to `deg` whose arrowhead shows the sense (CCW = +, CW = −), and a label.
+   */
+  const angleArc = (at: Complex, deg: number, color: string, label: string, r = 30, ray = true, arriving = false): void => {
+    const cx = P.X(at.re),
+      cy = P.Y(at.im);
+    const t = (deg * Math.PI) / 180;
+    body.push(<line key={k()} x1={cx} y1={cy} x2={cx + r + 18} y2={cy} stroke="#495057" strokeWidth={1.1} strokeDasharray="4 3" />);
+    if (ray) {
+      const ex = cx + (r + 22) * Math.cos(t),
+        ey = cy - (r + 22) * Math.sin(t);
+      body.push(<line key={k()} x1={cx} y1={cy} x2={ex} y2={ey} stroke={color} strokeWidth={1.8} />);
+      body.push(
+        <path key={k()} d={arriving ? arrowHead(ex, ey, cx + (ex - cx) * 0.35, cy + (ey - cy) * 0.35, 8) : arrowHead(cx, cy, ex, ey, 8)} fill={color} />,
+      );
+    }
+    const fx = cx + r * Math.cos(t),
+      fy = cy - r * Math.sin(t);
+    const large = Math.abs(deg) > 180 ? 1 : 0;
+    const sweep = deg > 0 ? 0 : 1;
+    body.push(<path key={k()} d={`M${cx + r} ${cy}A${r} ${r} 0 ${large} ${sweep} ${fx} ${fy}`} fill="none" stroke={color} strokeWidth={1.6} strokeDasharray="2 3" />);
+    // arrowhead tangent to the arc at its end (screen coordinates)
+    const dx = deg > 0 ? -Math.sin(t) : Math.sin(t),
+      dy = deg > 0 ? -Math.cos(t) : Math.cos(t);
+    body.push(<path key={k()} d={arrowHead(fx - dx * 6, fy - dy * 6, fx, fy, 7)} fill={color} />);
+    const mid = t / 2;
+    const lx = cx + (r + 10) * Math.cos(mid),
+      ly = cy - (r + 10) * Math.sin(mid);
+    pendingLabels.push(() => labels.add(lx, ly, label, color, 11.5, [[4, deg >= 0 ? -4 : 14]]));
+  };
+
   /** Everything that depends on the sign of K: asymptotes, locus, real-axis segments, break points, crossings. */
   const drawLayer = (s: Solution, st: LayerStyle, rv: number): void => {
     const { r2, r3, r4, r5, cross, locus } = s;
@@ -447,6 +528,28 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
         const t = (a.deg * Math.PI) / 180;
         body.push(
           <line key={k()} x1={P.X(r4.sigma)} y1={P.Y(0)} x2={P.X(r4.sigma + Lr * Math.cos(t))} y2={P.Y(Lr * Math.sin(t))} stroke={st.asym} strokeWidth={1.3} strokeDasharray="6 4" />,
+        );
+      }
+      const sg0 = r4.sigma;
+      // angle arcs for the upper-half asymptote angles (measured from the positive real direction)
+      r3.angles
+        .filter((a) => a.deg > 1e-9 && a.deg < 180 - 1e-9)
+        .sort((a, b) => a.deg - b.deg)
+        .forEach((a, i) => angleArc({ re: sg0, im: 0 }, a.deg, st.asym, `θ = ${tnum(a.deg, 1)}°`, 26 + 12 * i, false));
+      // where each asymptote meets the jω axis (the tan-rule point p = |σ|·tanθ)
+      for (const a of r3.angles) {
+        const t = (a.deg * Math.PI) / 180;
+        if (Math.abs(Math.cos(t)) < 1e-9 || Math.abs(Math.sin(t)) < 1e-9) continue;
+        if ((0 - sg0) / Math.cos(t) <= 0) continue; // the ray never reaches x = 0
+        const y = -sg0 * Math.tan(t);
+        const z = { re: 0, im: y };
+        if (!inView(z)) continue;
+        const x0 = P.X(0),
+          y0 = P.Y(y);
+        body.push(<circle key={k()} cx={x0} cy={y0} r={4.5} fill="#fff" stroke={st.asym} strokeWidth={2} />);
+        labels.reservePoint(x0, y0, 6);
+        pendingLabels.push(() =>
+          labels.add(x0, y0, `${y > 0 ? '+' : '−'}j${tnum(Math.abs(y), 3)} (asymptote)`, st.sign < 0 ? NEG.mark : '#c2410c', 11, [[-128, y > 0 ? -6 : 14]]),
         );
       }
     }
@@ -488,12 +591,12 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
       r5.accepted.forEach((c) => {
         const x = P.X(c.s.re),
           y = P.Y(c.s.im);
-        body.push(<circle key={k()} cx={x} cy={y} r={5.5} fill={COL.brk} stroke={st.sign < 0 ? NEG.locus : '#fff'} strokeWidth={st.sign < 0 ? 2 : 1.5} />);
+        body.push(<circle key={k()} cx={x} cy={y} r={5.5} fill={st.brk} stroke="#fff" strokeWidth={1.5} />);
         labels.reservePoint(x, y, 7);
         if (inView(c.s))
           pendingLabels.push(() => {
             const tag = c.kind === 'entry' ? 'entry' : 'brk';
-            labels.add(x, y, `${tag} ${c.s.im === 0 ? tnum(c.s.re, 2) : fcomplex(c.s, 2, true)}${st.tag}`, COL.brk, 11.5, [[-24, -12]]);
+            labels.add(x, y, `${tag} ${c.s.im === 0 ? tnum(c.s.re, 2) : fcomplex(c.s, 2, true)}${st.tag}`, st.brk, 11.5, [[-24, -12]]);
           });
       });
     // jω crossings
@@ -502,11 +605,11 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
         [1, -1].forEach((sg) => {
           const x = P.X(0),
             y = P.Y(sg * c.omega);
-          body.push(<circle key={k()} cx={x} cy={y} r={5.5} fill={COL.cross} stroke={st.sign < 0 ? NEG.locus : '#fff'} strokeWidth={st.sign < 0 ? 2 : 1.5} />);
+          body.push(<circle key={k()} cx={x} cy={y} r={5.5} fill={st.cross} stroke="#fff" strokeWidth={1.5} />);
           labels.reservePoint(x, y, 7);
           if (inView({ re: 0, im: sg * c.omega }))
             pendingLabels.push(() =>
-              labels.add(x, y, `${sg > 0 ? '+' : '−'}j${tnum(c.omega, 3)}${st.tag}`, COL.cross, 11.5, [[9, sg > 0 ? -7 : 15]]),
+              labels.add(x, y, sg > 0 ? `+j${tnum(c.omega, 3)}, K_x = ${tnum(st.sign * c.K, 3)}` : `−j${tnum(c.omega, 3)}`, st.cross, 11.5, [[9, sg > 0 ? -7 : 15]]),
             );
         }),
       );
@@ -515,8 +618,8 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
   };
 
   const both = mode === 'both';
-  if (mode !== 'neg') drawLayer(sol, { locus: COL.locus, asym: COL.asym, tag: both ? ' (K>0)' : '', sign: 1 }, reveal);
-  if (solNeg) drawLayer(solNeg, { locus: NEG.locus, asym: NEG.asym, tag: both ? ' (K<0)' : '', sign: -1 }, 7);
+  if (mode !== 'neg') drawLayer(sol, { locus: COL.locus, asym: COL.asym, brk: COL.brk, cross: COL.cross, tag: both ? ' (K>0)' : '', sign: 1 }, reveal);
+  if (solNeg) drawLayer(solNeg, { locus: NEG.locus, asym: NEG.asym, brk: NEG.mark, cross: NEG.mark, tag: both ? ' (K<0)' : '', sign: -1 }, 7);
 
   // poles / zeros (on top)
   const big = W >= 500;
@@ -536,27 +639,28 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
     body.push(<rect key={k()} x={x - 5} y={y - 5} width={10} height={10} transform={`rotate(45 ${x} ${y})`} fill={COL.asym} />);
     labels.reservePoint(x, y, 7);
   }
-  // R6 departure arrows (teach mode only)
-  if (mode === 'pos' && reveal === 6) {
-    const Lr = 0.12 * Math.max(v.x1 - v.x0, v.y1 - v.y0);
-    const drawDir = (at: Complex, ang: number, arriving: boolean): void =>
-      [1, -1].forEach((sg) => {
-        if (at.im === 0 && sg < 0) return;
-        const p = { re: at.re, im: sg * at.im };
-        const t = (sg * ang * Math.PI) / 180;
-        const e = { re: p.re + Lr * Math.cos(t), im: p.im + Lr * Math.sin(t) };
-        const [s0, s1] = arriving ? [e, p] : [p, e];
-        body.push(<line key={k()} x1={P.X(s0.re)} y1={P.Y(s0.im)} x2={P.X(s1.re)} y2={P.Y(s1.im)} stroke={COL.locus} strokeWidth={2} />);
-        body.push(<path key={k()} d={arrowHead(P.X(s0.re), P.Y(s0.im), P.X(s1.re), P.Y(s1.im), 9)} fill={COL.locus} />);
+  // R6 departure / arrival angles: horizontal reference, dotted arc with direction, signed value
+  if (mode !== 'neg' && reveal >= 6) {
+    sol.r6.departures
+      .filter((d) => d.at.im > 0)
+      .forEach((d) => {
+        if (!inView(d.at)) return;
+        angleArc(d.at, d.angles[0], COL.locus, `θ_d = ${tnum(d.angles[0], 1)}°`);
+        angleArc({ re: d.at.re, im: -d.at.im }, -d.angles[0], COL.locus, `θ_d = ${tnum(-d.angles[0], 1)}°`);
       });
-    sol.r6.departures.forEach((d) => d.angles.forEach((a) => drawDir(d.at, a, false)));
-    sol.r6.arrivals.forEach((d) => d.angles.forEach((a) => drawDir(d.at, a, true)));
+    sol.r6.arrivals
+      .filter((d) => d.at.im > 0)
+      .forEach((d) => {
+        if (!inView(d.at)) return;
+        angleArc(d.at, d.angles[0], COL.locus, `θ_a = ${tnum(d.angles[0], 1)}°`, 30, true, true);
+        angleArc({ re: d.at.re, im: -d.at.im }, -d.angles[0], COL.locus, `θ_a = ${tnum(-d.angles[0], 1)}°`, 30, true, true);
+      });
   }
 
   // ---------------- labels (after all reservations)
   const nameList = (z: Complex, list: Complex[], pfx: string): string =>
     list
-      .map((w, i) => (w.re === z.re && w.im === z.im ? `${pfx}${i + 1}` : ''))
+      .map((w, i) => (w.re === z.re && w.im === z.im ? `${pfx}_${i + 1}` : ''))
       .filter(Boolean)
       .join(',');
   ol.polesM.forEach((r) => {
@@ -567,17 +671,9 @@ function buildScene(sol: Solution, solNeg: Solution | null, mode: KMode, P: Plan
   });
   if (showCentroid && sig !== null && inView({ re: sig, im: 0 })) labels.add(P.X(sig), P.Y(0), `σ = ${tnum(sig, 2)}`, COL.asym, 11.5, [[-20, 24]]);
   pendingLabels.forEach((f) => f());
-  if (mode === 'pos' && reveal >= 6) {
-    sol.r6.departures.forEach((d) => {
-      if (inView(d.at) && d.at.im !== 0) labels.add(P.X(d.at.re), P.Y(d.at.im), `θd = ${tnum(d.angles[0], 1)}°`, COL.locus, 11);
-    });
-    sol.r6.arrivals.forEach((d) => {
-      if (inView(d.at) && d.at.im !== 0) labels.add(P.X(d.at.re), P.Y(d.at.im), `θa = ${tnum(d.angles[0], 1)}°`, COL.locus, 11);
-    });
-  }
   const labelEls = labels.placed.map((l, i) => (
     <text key={`l${i}`} x={l.x} y={l.y} fontSize={l.size} fill={l.color} stroke="#fff" strokeWidth={3} paintOrder="stroke" strokeLinejoin="round">
-      {l.text}
+      {rich(l.text)}
     </text>
   ));
   const descOf = (s: Solution, sign: string): string =>

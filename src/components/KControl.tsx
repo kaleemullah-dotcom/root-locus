@@ -63,35 +63,76 @@ export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlay
     if (effMode === 'neg') return tn(Math.abs(k));
     return k >= 0 ? 0.5 + 0.5 * tp(k) : 0.5 - 0.5 * tn(-k);
   };
-  // play progress p ∈ [0, 1]; in "both" the first half sweeps 0 → +∞, the second 0 → −∞
-  const pToU = (p: number): number => (effMode === 'both' ? (p < 0.5 ? 0.5 + p : 0.5 - (p - 0.5)) : p);
-  const uToP = (u: number, k: number): number => (effMode === 'both' ? (k >= 0 ? u - 0.5 : 0.5 + (0.5 - u)) : u);
+  // Play timeline. K > 0 / K < 0: one sweep 0 → ±∞.
+  // Both: 0 → +∞, back +∞ → 0, pause at K = 0, then 0 → −∞ and back −∞ → 0.
+  const PAUSE = 1.6; // seconds at K = 0
+  const secs = SPEEDS.find((s) => s.id === speed)?.secs ?? 24;
+  const phases = useMemo(
+    () =>
+      effMode === 'both'
+        ? [
+            { from: 0.5, to: 1, dur: secs, label: 'K: 0 → +∞' },
+            { from: 1, to: 0.5, dur: secs * 0.6, label: 'K: +∞ → 0' },
+            { from: 0.5, to: 0.5, dur: PAUSE, label: 'K = 0 (pause)' },
+            { from: 0.5, to: 0, dur: secs, label: 'K: 0 → −∞' },
+            { from: 0, to: 0.5, dur: secs * 0.6, label: 'K: −∞ → 0' },
+          ]
+        : [{ from: 0, to: 1, dur: secs, label: effMode === 'neg' ? 'K: 0 → −∞' : 'K: 0 → +∞' }],
+    [effMode, secs],
+  );
+  const total = phases.reduce((a, p) => a + p.dur, 0);
+  const posAt = (time: number): { u: number; phase: number } => {
+    let t = time;
+    for (let i = 0; i < phases.length; i++) {
+      const ph = phases[i];
+      if (t <= ph.dur || i === phases.length - 1) {
+        const f = Math.min(1, Math.max(0, t / ph.dur));
+        const e = f; // linear in log|K|
+        return { u: ph.from + (ph.to - ph.from) * e, phase: i };
+      }
+      t -= ph.dur;
+    }
+    return { u: phases[0].from, phase: 0 };
+  };
+  const [phaseIdx, setPhaseIdx] = useState<number | null>(null);
+  const tRef = useRef(0);
 
   const raf = useRef(0);
-  const pRef = useRef(0);
-  pRef.current = uToP(toU(K), K);
   useEffect(() => {
-    if (!playing) return;
+    if (!playing) {
+      setPhaseIdx(null);
+      return;
+    }
     let last = performance.now();
-    const secs = SPEEDS.find((s) => s.id === speed)?.secs ?? 24;
-    const dur = (effMode === 'both' ? 2 : 1) * secs * 1000;
-    if (pRef.current >= 0.999) pRef.current = 0;
-    const tick = (t: number): void => {
-      const dt = Math.min(100, t - last);
-      last = t;
-      let p = pRef.current + dt / dur;
-      if (p >= 1) {
-        p = 1;
+    if (tRef.current >= total - 1e-6) tRef.current = 0;
+    // resume from the slider position when it lies on the first phase
+    if (tRef.current === 0) {
+      const u = toU(K);
+      const ph = phases[0];
+      const f = (u - ph.from) / (ph.to - ph.from || 1);
+      if (f > 0 && f < 0.98) tRef.current = f * ph.dur;
+    }
+    const tick = (now: number): void => {
+      const dt = Math.min(100, now - last) / 1000;
+      last = now;
+      tRef.current = Math.min(total, tRef.current + dt);
+      const { u, phase } = posAt(tRef.current);
+      setPhaseIdx(phase);
+      setK(fromU(u));
+      if (tRef.current >= total) {
+        tRef.current = total;
         setPlaying(false);
+        return;
       }
-      pRef.current = p;
-      setK(fromU(pToU(p)));
-      if (p < 1) raf.current = requestAnimationFrame(tick);
+      raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playing, speed, effMode, pr, nr]);
+  }, [playing, phases, pr, nr]);
+  useEffect(() => {
+    tRef.current = 0;
+  }, [effMode, sol]);
 
   const tol = (p: Complex): number => 1e-9 * Math.max(1, Math.abs(p.re) + Math.abs(p.im));
   const stable = clPoles.length > 0 && clPoles.every((p) => p.re < -tol(p));
@@ -166,11 +207,16 @@ export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlay
           <select value={speed} onChange={(e) => setSpeed(e.target.value as typeof speed)} className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[13px]">
             {SPEEDS.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.label} ({s.secs} s)
+                {s.label} ({s.secs} s / sweep)
               </option>
             ))}
           </select>
         </label>
+        {playing && phaseIdx !== null && (
+          <span className="num rounded bg-white px-2 py-0.5 text-[12px] text-slate-700 shadow-sm" aria-live="polite">
+            {phases[phaseIdx].label}
+          </span>
+        )}
         <span
           className={`ml-auto rounded-full px-3 py-1 text-xs font-bold ${stable ? 'bg-green-100 text-green-800' : marginal ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}
           role="status"
@@ -197,6 +243,7 @@ export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlay
           value={Math.round(toU(K) * 1000)}
           onChange={(e) => {
             setPlaying(false);
+            tRef.current = 0;
             setK(fromU(Number(e.target.value) / 1000));
           }}
           aria-valuetext={`K = ${tnum(K, 4)}, ${stable ? 'stable' : marginal ? 'marginally stable' : 'unstable'}`}

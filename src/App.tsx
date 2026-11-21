@@ -181,7 +181,7 @@ export default function App() {
         Skip to solution
       </a>
       <header className="bg-navy text-white">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-[1880px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
           <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden className="shrink-0">
             <rect width="64" height="64" rx="12" fill="#2a4c8a" />
             <path d="M8 32h48M32 8v48" stroke="#8fa3c7" strokeWidth="2" />
@@ -190,7 +190,7 @@ export default function App() {
           </svg>
           <div className="min-w-0">
             <h1 className="text-lg font-bold leading-tight sm:text-xl">Root Locus Studio</h1>
-            <p className="text-[12px] text-blue-100 sm:text-[12.5px]">Complete root-locus solutions by the 7-rule method (R1–R7) · exact Routh array · interactive plot</p>
+            <p className="text-[12.5px] font-medium text-blue-100 sm:text-[13px]">Designed by Kaleem Ullah (CE-45 A)</p>
           </div>
           <div className="no-print ml-auto flex flex-wrap gap-2">
             <button type="button" onClick={copyLink} className="rounded-md border border-white/40 px-3 py-1.5 text-sm font-medium hover:bg-white/10">
@@ -206,7 +206,7 @@ export default function App() {
         </div>
       </header>
 
-      <div className="mx-auto grid max-w-[1600px] grid-cols-[minmax(0,1fr)] gap-4 px-3 py-4 sm:px-6 lg:grid-cols-[330px_minmax(0,1fr)] lg:items-start">
+      <div className="mx-auto grid max-w-[1880px] grid-cols-[minmax(0,1fr)] gap-4 px-3 py-4 sm:px-5 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
         <aside className="no-print rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-4" aria-label="Input">
           <InputCard input={input} setInput={setInput} onSolve={solve} error={error} warnings={sol?.tf.warnings ?? []} />
         </aside>
@@ -270,14 +270,14 @@ export default function App() {
                       <span className="f-red font-semibold">Poles:</span>{' '}
                       {sol.ol.poles.map((z, i) => (
                         <span key={i} className="num mr-2 whitespace-nowrap">
-                          P{i + 1} = {fmtC(z)}
+                          P<sub>{i + 1}</sub> = {fmtC(z)}
                         </span>
                       ))}
                       <span className="f-red ml-2 font-semibold">Zeros:</span>{' '}
                       {sol.ol.zeros.length
                         ? sol.ol.zeros.map((z, i) => (
                             <span key={i} className="num mr-2 whitespace-nowrap">
-                              z{i + 1} = {fmtC(z)}
+                              z<sub>{i + 1}</sub> = {fmtC(z)}
                             </span>
                           ))
                         : 'none'}
@@ -315,7 +315,7 @@ export default function App() {
                     </div>
                     {idle && plotNear ? (
                     <>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+                    <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_310px] xl:items-start">
                       <div className="min-w-0">
                         <MainPlot
                           ref={plotRef}
@@ -324,6 +324,7 @@ export default function App() {
                           kMode={kMode}
                           baseView={plotView ?? undefined}
                           clPoles={clPoles}
+                          clNegative={K < 0}
                           highlight={selected}
                           title={title}
                         />
@@ -406,8 +407,8 @@ export default function App() {
           </div>
         </div>
       )}
-      <footer className="no-print mx-auto max-w-[1600px] px-6 pb-6 text-center text-[12px] text-slate-600">
-        Root Locus Studio · exact engine verified against python-control · method R1–R7
+      <footer className="no-print mx-auto max-w-[1880px] px-6 pb-6 text-center text-[12px] text-slate-600">
+        Root Locus Studio · designed by Kaleem Ullah (CE-45 A) · exact engine verified against python-control
       </footer>
     </div>
   );
