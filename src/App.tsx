@@ -14,7 +14,7 @@ import { RuleTable } from './components/RuleTable';
 import { RouthPanel } from './components/RouthPanel';
 import { MainPlot, type KMode, type MainPlotHandle } from './components/MainPlot';
 import { LegendPanel } from './components/LegendPanel';
-import { KControl, kRange } from './components/KControl';
+import { KControl, kRange, type SimStatus } from './components/KControl';
 const TeachMode = lazy(() => import('./components/TeachMode').then((m) => ({ default: m.TeachMode })));
 import { Tex } from './components/Tex';
 import { useIdleReady, useMediaQuery, useNearViewport } from './lib/hooks';
@@ -63,6 +63,7 @@ export default function App() {
   const [selected, setSelected] = useState<RuleId | null>(null);
   const [K, setK] = useState<number>(1);
   const [playing, setPlaying] = useState(false);
+  const [simStatus, setSimStatus] = useState<SimStatus | null>(null);
   const [kMode, setKModeRaw] = useState<KMode>('pos');
   const [view, setView] = useState<View>('solution');
   const [teachStep, setTeachStep] = useState(0);
@@ -325,6 +326,8 @@ export default function App() {
                           baseView={plotView ?? undefined}
                           clPoles={clPoles}
                           clNegative={K < 0}
+                          simK={K}
+                          simStatus={simStatus}
                           highlight={selected}
                           title={title}
                         />
@@ -340,6 +343,7 @@ export default function App() {
                           playing={playing}
                           setPlaying={setPlaying}
                           clPoles={clPoles}
+                          onStatus={setSimStatus}
                         />
                       </div>
                     </div>

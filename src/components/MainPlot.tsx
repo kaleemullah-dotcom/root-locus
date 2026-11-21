@@ -4,6 +4,7 @@ import type { Locus } from '../engine/locus';
 import { poleInfo } from '../engine/closedloop';
 import { fcomplex, tnum } from '../engine/latex';
 import type { RuleId } from '../lib/content';
+import type { SimStatus } from './KControl';
 import {
   COL,
   LabelPlacer,
@@ -70,8 +71,11 @@ interface Props {
   baseView?: ViewBox;
   /** closed-loop poles at the slider K */
   clPoles?: Complex[] | null;
-  /** the simulated K is negative (closed-loop dots in the K < 0 colour) */
+  /** the simulated K is negative (closed-loop markers in the K < 0 colour) */
   clNegative?: boolean;
+  /** current simulated K and play direction, shown in a small box at the top-left of the plot */
+  simK?: number | null;
+  simStatus?: SimStatus | null;
   highlight?: RuleId | null;
   /** teach mode: show only features of rules ≤ reveal */
   reveal?: number;
@@ -141,9 +145,9 @@ function legendGlyph(kind: LegendItem['kind'], x: number, y: number): JSX.Elemen
     case 'ajw':
       return <circle cx={x + 7} cy={y} r={3.8} fill="#fff" stroke={COL.asym} strokeWidth={1.8} />;
     case 'ncl':
-      return <circle cx={x + 7} cy={y} r={5} fill={NEG.fill} stroke={NEG.mark} strokeWidth={1.2} />;
+      return <rect x={x + 2} y={y - 5} width={10} height={10} rx={1.2} fill={NEG.fill} stroke={NEG.mark} strokeWidth={1.3} />;
     default:
-      return <circle cx={x + 7} cy={y} r={5} fill="#fab005" stroke="#212529" strokeWidth={1.2} />;
+      return <rect x={x + 2} y={y - 5} width={10} height={10} rx={1.2} fill="#fab005" stroke="#212529" strokeWidth={1.3} />;
   }
 }
 
@@ -183,6 +187,8 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
     baseView,
     clPoles,
     clNegative = false,
+    simK = null,
+    simStatus = null,
     highlight = null,
     reveal = 7,
     title,
@@ -371,11 +377,22 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
           {scene.body}
           {clPoles &&
             clPoles.filter(finite).map((z, i) => (
-              <circle key={i} cx={P.X(z.re)} cy={P.Y(z.im)} r={7} fill={z.re > 1e-9 ? '#fa5252' : clNegative ? NEG.fill : '#fab005'} stroke={clNegative ? NEG.mark : '#212529'} strokeWidth={1.5} />
+              <rect
+                key={i}
+                x={P.X(z.re) - 6}
+                y={P.Y(z.im) - 6}
+                width={12}
+                height={12}
+                rx={1.5}
+                fill={z.re > 1e-9 ? '#fa5252' : clNegative ? NEG.fill : '#fab005'}
+                stroke={clNegative ? NEG.mark : '#212529'}
+                strokeWidth={1.6}
+              />
             ))}
           {hl?.over}
         </g>
         {scene.labels}
+        {simK !== null && clPoles && <SimBox x={P.pl + 8} y={P.pt + 8} K={simK} status={simStatus} negative={clNegative} />}
         {hover && (
           <g pointerEvents="none">
             <circle cx={hover.x} cy={hover.y} r={5} fill="none" stroke="#212529" strokeWidth={1.5} />
@@ -419,6 +436,33 @@ export const MainPlot = forwardRef<MainPlotHandle, Props>(function MainPlot(
     </div>
   );
 });
+
+/** Small in-graph readout: current K and the play direction (forward / backward / pause). */
+function SimBox({ x, y, K, status, negative }: { x: number; y: number; K: number; status: SimStatus | null; negative: boolean }) {
+  const lines: Array<{ t: string; color: string; bold?: boolean }> = [];
+  if (status) {
+    const icon = status.dir === 'forward' ? '▶' : status.dir === 'backward' ? '◀' : '❚❚';
+    const color = status.dir === 'forward' ? '#2b8a3e' : status.dir === 'backward' ? '#c2410c' : '#495057';
+    lines.push({ t: `${icon} ${status.text}`, color, bold: true });
+  }
+  lines.push({
+    t: status?.dir === 'pause' ? 'K ≈ 0 (open-loop poles)' : `K = ${tnum(K, 4)}`,
+    color: negative ? NEG.mark : '#1f3b6e',
+    bold: !status,
+  });
+  const w = Math.max(...lines.map((l) => l.t.length)) * 6.1 + 16;
+  const h = lines.length * 15 + 8;
+  return (
+    <g pointerEvents="none" aria-hidden>
+      <rect x={x} y={y} width={w} height={h} rx={5} fill="#ffffff" fillOpacity={0.92} stroke="#ced4da" />
+      {lines.map((l, i) => (
+        <text key={i} x={x + 8} y={y + 16 + i * 15} fontSize={11} fontWeight={l.bold ? 600 : 400} fill={l.color}>
+          {l.t}
+        </text>
+      ))}
+    </g>
+  );
+}
 
 // ======================================================================= scene builder
 

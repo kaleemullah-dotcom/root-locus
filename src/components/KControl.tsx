@@ -4,7 +4,15 @@ import { poleInfo, stepResponse } from '../engine/closedloop';
 import { fcomplex, tnum } from '../engine/latex';
 import type { KMode } from './MainPlot';
 
+/** What the simulation is doing right now (shown inside the graph). */
+export interface SimStatus {
+  dir: 'forward' | 'backward' | 'pause';
+  text: string;
+}
+
 interface Props {
+  /** reports the current play phase (null when not playing) */
+  onStatus?: (s: SimStatus | null) => void;
   sol: Solution;
   /** K < 0 analysis (gains reported as K' = −K) */
   solNeg: Solution | null;
@@ -40,7 +48,7 @@ const MODES: Array<{ id: KMode; label: string; title: string }> = [
   { id: 'both', label: 'Both', title: 'Both ranges' },
 ];
 
-export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlaying, clPoles }: Props) {
+export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlaying, clPoles, onStatus }: Props) {
   const [speed, setSpeed] = useState<(typeof SPEEDS)[number]['id']>('slow');
   const pr = useMemo(() => kRange(sol), [sol]);
   const nr = useMemo(() => (solNeg ? kRange(solNeg) : pr), [solNeg, pr]);
@@ -71,13 +79,13 @@ export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlay
     () =>
       effMode === 'both'
         ? [
-            { from: 0.5, to: 1, dur: secs, label: 'K: 0 → +∞' },
-            { from: 1, to: 0.5, dur: secs * 0.6, label: 'K: +∞ → 0' },
-            { from: 0.5, to: 0.5, dur: PAUSE, label: 'K = 0 (pause)' },
-            { from: 0.5, to: 0, dur: secs, label: 'K: 0 → −∞' },
-            { from: 0, to: 0.5, dur: secs * 0.6, label: 'K: −∞ → 0' },
+            { from: 0.5, to: 1, dur: secs, label: 'K: 0 → +∞', dir: 'forward' as const },
+            { from: 1, to: 0.5, dur: secs * 0.6, label: 'K: +∞ → 0', dir: 'backward' as const },
+            { from: 0.5, to: 0.5, dur: PAUSE, label: 'K = 0 (pause)', dir: 'pause' as const },
+            { from: 0.5, to: 0, dur: secs, label: 'K: 0 → −∞', dir: 'forward' as const },
+            { from: 0, to: 0.5, dur: secs * 0.6, label: 'K: −∞ → 0', dir: 'backward' as const },
           ]
-        : [{ from: 0, to: 1, dur: secs, label: effMode === 'neg' ? 'K: 0 → −∞' : 'K: 0 → +∞' }],
+        : [{ from: 0, to: 1, dur: secs, label: effMode === 'neg' ? 'K: 0 → −∞' : 'K: 0 → +∞', dir: 'forward' as const }],
     [effMode, secs],
   );
   const total = phases.reduce((a, p) => a + p.dur, 0);
@@ -133,6 +141,21 @@ export function KControl({ sol, solNeg, mode, setMode, K, setK, playing, setPlay
   useEffect(() => {
     tRef.current = 0;
   }, [effMode, sol]);
+  useEffect(() => {
+    if (!onStatus) return;
+    if (!playing || phaseIdx === null) onStatus(null);
+    else {
+      const ph = phases[phaseIdx];
+      const neg = ph.label.includes('−∞');
+      const text =
+        ph.dir === 'pause'
+          ? 'Pause at K = 0'
+          : ph.dir === 'forward'
+            ? `Forward: |K| increasing (${neg ? '0 → −∞' : '0 → +∞'})`
+            : `Backward: K returning (${neg ? '−∞ → 0' : '+∞ → 0'})`;
+      onStatus({ dir: ph.dir, text });
+    }
+  }, [playing, phaseIdx, phases, onStatus]);
 
   const tol = (p: Complex): number => 1e-9 * Math.max(1, Math.abs(p.re) + Math.abs(p.im));
   const stable = clPoles.length > 0 && clPoles.every((p) => p.re < -tol(p));
