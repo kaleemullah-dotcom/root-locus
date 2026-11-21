@@ -26,7 +26,7 @@ import { stabilityIntervals, type OpenLoopLite, type StabilityResult } from './s
 import { makeOpenLoop, type OpenLoop } from './system';
 import { buildTF, type TFInput, type TransferFunction } from './tf';
 import { autoView, featureBox, type ViewBox } from './view';
-import { qToFloat } from './qpoly';
+import { qneg, qToFloat } from './qpoly';
 
 export interface Solution {
   input: TFInput;
@@ -68,14 +68,16 @@ export interface LocusJob {
   ol: OpenLoopLite;
   view: ViewBox;
   mandatory: number[];
+  /** |K| values to sample exactly on the K < 0 locus */
+  mandatoryNeg?: number[];
   boundaries: number[];
   stable: { lo: number; hi: number }[];
 }
-export function locusJob(sol: Solution): LocusJob {
+export function locusJob(sol: Solution, view: ViewBox = sol.view): LocusJob {
   const { Df, Nf, n, m, q, poles, zeros } = sol.ol;
   return {
     ol: { Df, Nf, n, m, q, poles, zeros },
-    view: sol.view,
+    view,
     mandatory: [...sol.r5.accepted.map((c) => c.K.re), ...sol.cross.crossings.map((c) => c.K)],
     boundaries: sol.stab.boundaries,
     stable: sol.stab.stable,
@@ -83,7 +85,27 @@ export function locusJob(sol: Solution): LocusJob {
 }
 
 export function solveTF(input: TFInput, opts: SolveOptions = {}): Solution {
-  const tf = buildTF(input);
+  return solveFromTF(input, buildTF(input), opts);
+}
+
+/**
+ * The K < 0 (complementary) locus solved with the same 7-rule pipeline: K·N/D with K < 0 is
+ * K'·(−N)/D with K' = −K > 0, i.e. a 0° locus. Gains reported by the result are K' (> 0);
+ * the UI shows them as K = −K'.
+ */
+export function solveNegative(sol: Solution): Solution {
+  const tf = { ...sol.tf, N: qneg(sol.tf.N), warnings: [] };
+  return solveFromTF(sol.input, tf, { heavy: false });
+}
+
+/** Common view containing the features of both the K > 0 and K < 0 solutions. */
+export function combinedView(a: Solution, b: Solution | null, aspect = 1.45): ViewBox {
+  if (!b) return a.view;
+  const leftExtra = [...a.r2.segments, ...b.r2.segments].some((s) => s.b === -Infinity);
+  return autoView(featureBox([...a.features, ...b.features]), aspect, { leftExtra });
+}
+
+export function solveFromTF(input: TFInput, tf: TransferFunction, opts: SolveOptions = {}): Solution {
   const ol = makeOpenLoop(tf.N, tf.D);
   const r1 = ruleR1(ol);
   const r5 = ruleR5(ol);

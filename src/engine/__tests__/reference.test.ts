@@ -280,3 +280,47 @@ describe('locus tracking quality', () => {
     expect(s.locus.Ks.some((k) => Math.abs(k - kb) < 1e-12 * kb)).toBe(true);
   });
 });
+
+describe('K < 0 (complementary) locus', () => {
+  it('class example: real-axis segments, asymptotes and origin crossing for K < 0', async () => {
+    const { solveNegative } = await import('../solve');
+    const s = solve('1', 's(s+4)(s+5)');
+    const n = solveNegative(s);
+    expect(n.ol.is180).toBe(false);
+    expect(sortedAbs(n.r3.angles.map((a) => a.deg))).toEqual([-120, 0, 120]);
+    // K < 0 real-axis segments: s > 0 and −5 < s < −4
+    expect(n.r2.segments.map((g) => [g.a, g.b])).toEqual([
+      [Infinity, 0],
+      [-4, -5],
+    ]);
+    // break point between −4 and −5 (the other root of P), K = −1.128
+    near(n.r5.accepted[0].s.re, -4.528, 3);
+    near(-n.r5.accepted[0].K.re, -1.128, 3);
+    // a pole crosses into the RHP through s = 0 immediately: unstable for every K < 0
+    expect(n.stab.stable).toEqual([]);
+  });
+});
+
+describe('K < 0 tracking terminates and is continuous', () => {
+  it.each([
+    ['1', 's(s+4)(s+5)'],
+    ['1', 's(s+3)(s^2+2s+2)'],
+    ['s+4', '(s+1)(s+2)'],
+    ['s^2+2s+4', 's(s+4)(s+6)(s^2+1.4s+1)'],
+  ])('K(%s)/(%s)', async (num, den) => {
+    const { trackLocus } = await import('../locus');
+    const s = solve(num, den);
+    const t = Date.now();
+    const L = trackLocus(s.ol, { view: s.view, sign: -1 });
+    expect(Date.now() - t).toBeLessThan(5000);
+    expect(L.Ks.every((k) => k <= 0)).toBe(true);
+    // the closed-loop char poly D + K·N vanishes at every sample
+    const span = Math.max(s.view.x1 - s.view.x0, s.view.y1 - s.view.y0);
+    let jumps = 0;
+    L.branches.forEach((br) => {
+      for (let i = 1; i < br.length; i++)
+        if (Math.max(cabs(br[i]), cabs(br[i - 1])) < 2 * span && cabs(csub(br[i], br[i - 1])) > 0.05 * span) jumps++;
+    });
+    expect(jumps).toBe(0);
+  });
+});

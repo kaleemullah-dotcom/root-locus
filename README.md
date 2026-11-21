@@ -10,8 +10,9 @@ G(s)H(s) = K·N(s)/D(s). It shows the full working in the **7-rule (R1–R7) tab
 - **Validation:** improper G(s)H(s) (m > n) is rejected with an explanation. Common pole–zero factors are cancelled exactly, with a warning. A negative effective gain switches to the 0° rules with a notice.
 - **Rule table:** columns Rule # · Name · Formula · Calculations · Results · Plot · Remarks, in the teacher's style and colours. R2 tests every interval. R5 lists every root of P(s) and marks it ✓ or ✗ with the reason. R6 lists every angle. R7 shows the vanishing row, Kₓ, the auxiliary equation and sₓ. R4 includes the tan-rule check. On phones the table becomes one card per rule.
 - **Routh panel:** exact rational entries in K in the teacher's form, e.g. `(40.8 − 5K)/6.8`, with a red bar after the sᵏ column. It also shows the first-column conditions, every crossing with its auxiliary equation, and explanations of the **ε** and **zero-row** special cases.
-- **Plot:** custom SVG with true 1:1 aspect, so a circle locus looks like a circle. It has a grid, auto view, zoom/pan/reset, hover readout (s, K, ζ, ωₙ), direction arrows, labels that don't overlap, PNG/SVG export and an optional K < 0 locus.
-- **Interactive:** a log-scale K slider and **Play** button move the closed-loop poles along the locus. A live readout shows the poles, ζ, ωₙ, a stable/marginal/unstable badge and a step-response chart. Clicking a rule highlights it on the plot. **Step-by-step (Teach) mode** reveals one rule at a time while the plot builds up.
+- **Plot:** custom SVG with true 1:1 aspect, so a circle locus looks like a circle. It has a grid, auto view, zoom/pan/reset, hover readout (s, K, ζ, ωₙ), direction arrows, labels that don't overlap, the legend drawn on the graph, and PNG/SVG export.
+- **Gain range K > 0 / K < 0 / Both:** the K < 0 (complementary, 0°) locus is solved exactly with the same 7 rules: its own real-axis segments, asymptotes, break points and jω crossings. It is drawn in teal so the two ranges stay clearly apart.
+- **Interactive:** a log-scale K slider and **Play** button move the closed-loop poles along the locus for the selected range (in *Both*, Play sweeps 0 → +∞ and then 0 → −∞). Speed is adjustable (default *Slow*: 24 s per sweep). The simulation card sits beside the plot, so the plot and the controls fit on one screen. A live readout shows the poles, ζ, ωₙ, a stable/marginal/unstable badge and a step-response chart. Clicking a rule highlights it on the plot. **Step-by-step (Teach) mode** reveals one rule at a time while the plot builds up.
 - **Export & share:** A4-landscape **PDF** (table, Routh, vector plot + legend), a print stylesheet, and a shareable URL (`#tf=K/(s(s+4)(s+5))`).
 
 ## The method (R1–R7)
@@ -30,9 +31,9 @@ The engine goes beyond the hand method where that is needed for correctness. It 
 ## How correctness is verified
 The engine (`src/engine`, pure TypeScript, strict, no `any`) uses exact BigInt rational arithmetic. It does exact square-free factorisation for true multiplicities, Sturm-certified real-root counts, Aberth–Ehrlich root finding with Newton polishing, an exact symbolic Routh array in K (with ε and auxiliary-polynomial handling), and exact Routh–Hurwitz tests at rational K for the stability intervals. A dense numeric scan cross-checks those intervals. The locus is traced with an adaptive step and optimal (Hungarian) branch matching, in a Web Worker.
 
-- `npm run test:unit`: **51 Vitest tests**, covering all course reference cases plus a zero row, the ε case, a double pole at the origin, n = m, conditional stability, complex breakaways, a triple meeting point, the 0° locus, and branch continuity.
+- `npm run test:unit`: **56 Vitest tests**, covering all course reference cases plus a zero row, the ε case, a double pole at the origin, n = m, conditional stability, complex breakaways, a triple meeting point, the 0° locus, and branch continuity.
 - `npm run verify`: `scripts/verify.py` independently recomputes poles, breakaway points and K, and Kₓ/ωₓ for **45 transfer functions** (23 hand-picked + 22 seeded random) with **python-control + numpy**. It uses different algorithms: cluster-averaged numpy roots, and a right-half-plane root-count sweep with bisection. **All agree to better than 1e-6 relative** (typically 1e-9 to 1e-15).
-- `npm run e2e`: 18 Playwright interaction checks (inputs, errors, highlighting, slider/Play, PNG/SVG/PDF export, Teach mode, sharing, mobile layout, no console errors).
+- `npm run e2e`: 19 Playwright interaction checks (inputs, errors, highlighting, slider/Play, PNG/SVG/PDF export, Teach mode, sharing, mobile layout, no console errors).
 - `npm run screenshots`: every example at 1440 px and 390 px, failing on console errors or horizontal overflow.
 - `npm run lighthouse`: median of 3 runs. Desktop: performance 98–99, accessibility 100. Mobile: accessibility 100, performance 81–96 (median about 88), because Lighthouse's simulated throttling is noisy on a busy machine.
 
@@ -64,4 +65,4 @@ Netlify works the same way (build `npm run build`, publish `dist`). For GitHub P
 - Time delays (e^{−sT}) and symbolic parameters other than K are out of scope. Coefficients must be numbers (decimals are converted to exact rationals).
 - Displayed values are rounded to 3–4 decimals. Internally, exact or about 1e-10.
 - Very high orders (n > 12) work, but the Routh expressions get long.
-- The K < 0 locus is drawn on the plot only; the table is for K > 0.
+- The rule table and Routh array are written for K > 0 (the course convention). The K < 0 locus is analysed exactly but shown on the plot and in the simulation.

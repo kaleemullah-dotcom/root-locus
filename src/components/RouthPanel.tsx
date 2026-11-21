@@ -35,7 +35,7 @@ export function RouthPanel({ sol }: { sol: Solution }) {
           </tbody>
         </table>
       </div>
-      <div className="min-w-[280px] flex-1 space-y-2 text-[13.5px] leading-relaxed">
+      <div className="min-w-0 flex-1 basis-[280px] space-y-2 overflow-x-auto text-[13.5px] leading-relaxed">
         <h3 className="font-semibold">Stability conditions (first column &gt; 0)</h3>
         {conditionLines(sol).length ? (
           <Lines lines={conditionLines(sol)} />

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InputError, solveTF, type Solution, type TFInput } from './engine';
+import { combinedView, emptyLocus, solveNegative } from './engine/solve';
 import { useLocusWorker } from './lib/useLocusWorker';
 import { closedLoopPoles } from './engine/stability';
 import { factoredTex } from './engine/latex';
@@ -11,8 +12,8 @@ import { exportPdf, exportPng, exportSvg } from './lib/export';
 import { InputCard } from './components/InputCard';
 import { RuleTable } from './components/RuleTable';
 import { RouthPanel } from './components/RouthPanel';
-import { MainPlot, type MainPlotHandle } from './components/MainPlot';
-import { LegendPanel, PlotKeys } from './components/LegendPanel';
+import { MainPlot, type KMode, type MainPlotHandle } from './components/MainPlot';
+import { LegendPanel } from './components/LegendPanel';
 import { KControl, kRange } from './components/KControl';
 const TeachMode = lazy(() => import('./components/TeachMode').then((m) => ({ default: m.TeachMode })));
 import { Tex } from './components/Tex';
@@ -62,7 +63,7 @@ export default function App() {
   const [selected, setSelected] = useState<RuleId | null>(null);
   const [K, setK] = useState<number>(1);
   const [playing, setPlaying] = useState(false);
-  const [showComp, setShowComp] = useState(false);
+  const [kMode, setKModeRaw] = useState<KMode>('pos');
   const [view, setView] = useState<View>('solution');
   const [teachStep, setTeachStep] = useState(0);
   const [exporting, setExporting] = useState(false);
@@ -117,7 +118,20 @@ export default function App() {
   }, [sol, view]);
 
   const rows = useMemo(() => (sol ? buildRows(sol) : []), [sol]);
-  const heavy = useLocusWorker(sol, showComp);
+  // K < 0 analysis (0° rules) — computed only when that range is shown
+  const solNegBase = useMemo(() => (sol && kMode !== 'pos' ? solveNegative(sol) : null), [sol, kMode]);
+  const plotView = useMemo(() => (sol ? combinedView(sol, solNegBase) : null), [sol, solNegBase]);
+  const heavy = useLocusWorker(sol, kMode !== 'pos', plotView, solNegBase);
+  const solNeg = useMemo(
+    () => (solNegBase ? { ...solNegBase, locus: heavy?.locusNeg ?? emptyLocus(solNegBase.ol) } : null),
+    [solNegBase, heavy],
+  );
+  const setKMode = (m: KMode): void => {
+    setKModeRaw(m);
+    if (!sol) return;
+    if (m === 'pos' && K < 0) setK(defaultK(sol));
+    if (m === 'neg' && K > 0) setK(-defaultK(solveNegative(sol)));
+  };
   const solShown = useMemo(
     () =>
       sol && heavy
@@ -249,7 +263,7 @@ export default function App() {
               ) : (
                 <>
                   <section id="sec-table" className="print-section scroll-mt-16 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4" aria-labelledby="h-table">
-                    <h2 id="h-table" className="mb-1 text-lg font-semibold">
+                    <h2 id="h-table" className="mb-1 overflow-x-auto overflow-y-hidden text-lg font-semibold">
                       <Tex tex={tfTex} />
                     </h2>
                     <p className="mb-3 flex flex-wrap items-baseline gap-x-1 gap-y-0.5 text-[13px] text-slate-600">
@@ -287,12 +301,10 @@ export default function App() {
                       <h2 id="h-plot" className="text-lg font-semibold">
                         Final root locus
                       </h2>
-                      <span className="text-[12px] text-slate-600">K = 0 → {sol.locus.Kmax.toPrecision(3)} · drag to pan, Ctrl/⌘ + wheel or pinch to zoom, double-click to reset</span>
+                      <span className="text-[12px] text-slate-600">
+                        {kMode === 'pos' ? 'K: 0 → +∞' : kMode === 'neg' ? 'K: 0 → −∞' : 'K: −∞ … 0 … +∞'} · drag to pan, Ctrl/⌘ + wheel or pinch to zoom, double-click to reset
+                      </span>
                       <div className="no-print ml-auto flex flex-wrap gap-2 text-sm">
-                        <label className="flex items-center gap-1.5 rounded-md border border-slate-300 px-2 py-1">
-                          <input type="checkbox" checked={showComp} onChange={(e) => setShowComp(e.target.checked)} />
-                          K &lt; 0 locus
-                        </label>
                         <button type="button" className="rounded-md border border-slate-300 px-2.5 py-1 font-medium hover:bg-slate-50" onClick={() => { const s = plotRef.current?.svg(); if (s) void exportPng(s); }}>
                           PNG
                         </button>
@@ -303,17 +315,35 @@ export default function App() {
                     </div>
                     {idle && plotNear ? (
                     <>
-                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
                       <div className="min-w-0">
-                        <MainPlot ref={plotRef} sol={solShown} clPoles={clPoles} highlight={selected} showComplementary={showComp} title={title} />
-                        <div className="mt-2">
-                          <PlotKeys sol={sol} showComp={showComp} showK />
-                        </div>
+                        <MainPlot
+                          ref={plotRef}
+                          sol={solShown}
+                          solNeg={solNeg}
+                          kMode={kMode}
+                          baseView={plotView ?? undefined}
+                          clPoles={clPoles}
+                          highlight={selected}
+                          title={title}
+                        />
                       </div>
-                      <LegendPanel sol={sol} rows={rows} selected={selected} onSelect={setSelected} />
+                      <div className="no-print rounded-lg border border-slate-200 bg-slate-50 p-3 xl:sticky xl:top-16" aria-label="Simulation">
+                        <KControl
+                          sol={solShown}
+                          solNeg={solNeg}
+                          mode={kMode}
+                          setMode={setKMode}
+                          K={K}
+                          setK={setK}
+                          playing={playing}
+                          setPlaying={setPlaying}
+                          clPoles={clPoles}
+                        />
+                      </div>
                     </div>
-                    <div className="no-print mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <KControl sol={solShown} K={K} setK={setK} playing={playing} setPlaying={setPlaying} clPoles={clPoles} />
+                    <div className="mt-4">
+                      <LegendPanel sol={sol} rows={rows} selected={selected} onSelect={setSelected} columns />
                     </div>
                     </>
                     ) : (
@@ -368,7 +398,7 @@ export default function App() {
           </div>
           <div data-pdf-page="Root locus" style={{ display: 'flex', gap: 16, padding: 8 }}>
             <div style={{ width: 900 }}>
-              <MainPlot sol={solShown} title={title} fixedWidth={900} pdfVector bare />
+              <MainPlot sol={solShown} solNeg={solNeg} kMode={kMode} baseView={plotView ?? undefined} title={title} fixedWidth={900} pdfVector bare />
             </div>
             <div data-pdf-side style={{ width: 460 }}>
               <LegendPanel sol={sol} rows={rows} />

@@ -113,9 +113,22 @@ try {
     assert(statSync(p).size > 50000, `pdf size ${statSync(p).size}`);
     console.log('PDF saved to', p);
   });
-  await check('complementary locus toggle', async () => {
-    await page.getByLabel('K < 0 locus').check();
-    await page.waitForSelector('#sec-plot svg path[stroke="#94a3b8"]', { timeout: 10000, state: 'attached' });
+  await check('K < 0 mode draws the complementary locus and simulates negative K', async () => {
+    await page.getByRole('radio', { name: 'K < 0' }).click();
+    await page.waitForSelector('#sec-plot svg path[stroke="#0c8599"]', { timeout: 10000, state: 'attached' });
+    const k = await page.locator('output[for=kslider]').innerText();
+    assert(k.includes('−'), `K should be negative: ${k}`);
+    const blue = await page.locator('#sec-plot svg path[stroke="#2a6fdb"][fill="none"]').count();
+    assert(blue === 0, `K > 0 locus should be hidden, found ${blue}`);
+  });
+  await check('Both mode shows both loci; Play sweeps through K = 0', async () => {
+    await page.getByRole('radio', { name: 'Both' }).click();
+    await page.waitForSelector('#sec-plot svg path[stroke="#0c8599"]', { state: 'attached' });
+    await page.waitForSelector('#sec-plot svg path[stroke="#2a6fdb"][fill="none"]', { state: 'attached' });
+    await page.getByRole('button', { name: /Play/ }).click();
+    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: /Pause/ }).click();
+    await page.getByRole('radio', { name: 'K > 0' }).click();
   });
   await check('teach mode steps through the rules', async () => {
     await page.getByRole('tab', { name: 'Step-by-step' }).click();

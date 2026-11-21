@@ -19,7 +19,7 @@ export interface LocusReply {
 self.onmessage = (e: MessageEvent<LocusRequest>) => {
   const { id, job, complementary } = e.data;
   const locus = trackLocus(job.ol, { view: job.view, mandatory: job.mandatory });
-  const locusNeg = complementary ? trackLocus(job.ol, { view: job.view, sign: -1 }) : null;
+  const locusNeg = complementary ? trackLocus(job.ol, { view: job.view, sign: -1, mandatory: job.mandatoryNeg }) : null;
   const numericCheck = numericCrossCheck(job.ol, job.boundaries, job.stable);
   const reply: LocusReply = { id, locus, locusNeg, numericCheck };
   (self as unknown as Worker).postMessage(reply);

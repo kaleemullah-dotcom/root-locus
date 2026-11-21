@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { locusJob, type Solution } from '../engine/solve';
+import type { ViewBox } from '../engine/view';
 import { trackLocus, type Locus } from '../engine/locus';
 import { numericCrossCheck } from '../engine/stability';
 import type { LocusReply, LocusRequest } from '../engine/locus.worker';
@@ -14,7 +15,12 @@ export interface HeavyResult {
  * Runs locus tracking and the numeric stability scan in a Web Worker so the main thread stays
  * responsive. Falls back to synchronous computation when workers are unavailable.
  */
-export function useLocusWorker(sol: Solution | null, complementary: boolean): HeavyResult | null {
+export function useLocusWorker(
+  sol: Solution | null,
+  complementary: boolean,
+  view?: ViewBox | null,
+  negSol?: Solution | null,
+): HeavyResult | null {
   const [res, setRes] = useState<{ sol: Solution; comp: boolean; r: HeavyResult } | null>(null);
   const worker = useRef<Worker | null>(null);
   const seq = useRef(0);
@@ -39,7 +45,8 @@ export function useLocusWorker(sol: Solution | null, complementary: boolean): He
 
   useEffect(() => {
     if (!sol) return;
-    const job = locusJob(sol);
+    const job = locusJob(sol, view ?? sol.view);
+    if (negSol) job.mandatoryNeg = [...negSol.r5.accepted.map((c) => c.K.re), ...negSol.cross.crossings.map((c) => c.K)];
     const id = ++seq.current;
     const w = worker.current;
     if (w) {
@@ -49,12 +56,12 @@ export function useLocusWorker(sol: Solution | null, complementary: boolean): He
     } else {
       const t = window.setTimeout(() => {
         const locus = trackLocus(job.ol, { view: job.view, mandatory: job.mandatory });
-        const locusNeg = complementary ? trackLocus(job.ol, { view: job.view, sign: -1 }) : null;
+        const locusNeg = complementary ? trackLocus(job.ol, { view: job.view, sign: -1, mandatory: job.mandatoryNeg }) : null;
         setRes({ sol, comp: complementary, r: { locus, locusNeg, numericCheck: numericCrossCheck(job.ol, job.boundaries, job.stable) } });
       }, 0);
       return () => window.clearTimeout(t);
     }
-  }, [sol, complementary]);
+  }, [sol, complementary, view, negSol]);
 
   // keep showing the previous locus for the same solution while the complementary one is computed
   if (!res || res.sol !== sol) return null;

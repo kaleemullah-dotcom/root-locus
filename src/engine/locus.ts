@@ -116,8 +116,10 @@ export function trackLocus(ol: OpenLoopLite, opts: TrackOptions): Locus {
     const cur = matchRoots(prev, pred, rootsAt(kNext));
     const mv = maxMove(prev, cur, center, 2.5 * span);
     const sep = Math.min(minSep(prev), minSep(cur));
-    const tooFar = mv > 0.012 * span || (sep > 1e-6 * span && mv > 0.4 * sep);
-    if (tooFar && uNext - u > duMin && !(hitMand && uNext - u <= duMin * 4)) {
+    // near a double root (break point) the separation → 0; only enforce it while roots are clearly apart
+    const tooFar = mv > 0.012 * span || (sep > 2e-3 * span && mv > 0.4 * sep);
+    // (compare with a margin: uNext − u can exceed duMin by rounding, which used to loop forever)
+    if (tooFar && uNext - u > duMin * 1.5) {
       du = Math.max((uNext - u) / 2, duMin);
       continue;
     }
