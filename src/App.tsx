@@ -17,6 +17,7 @@ import { LegendPanel } from './components/LegendPanel';
 import { KControl, kRange, type SimStatus } from './components/KControl';
 const TeachMode = lazy(() => import('./components/TeachMode').then((m) => ({ default: m.TeachMode })));
 import { Tex } from './components/Tex';
+import { Logo, SiteFooter } from './components/SiteFooter';
 import { useIdleReady, useMediaQuery, useNearViewport } from './lib/hooks';
 
 type View = 'solution' | 'teach';
@@ -181,26 +182,36 @@ export default function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Skip to solution
       </a>
-      <header className="bg-navy text-white">
-        <div className="mx-auto flex max-w-[1880px] flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-          <svg width="34" height="34" viewBox="0 0 64 64" aria-hidden className="shrink-0">
-            <rect width="64" height="64" rx="12" fill="#2a4c8a" />
-            <path d="M8 32h48M32 8v48" stroke="#8fa3c7" strokeWidth="2" />
-            <path d="M20 32c4-14 10-20 24-22M20 32c4 14 10 20 24 22" fill="none" stroke="#7fb0ff" strokeWidth="4" strokeLinecap="round" />
-            <path d="M15 27l10 10M25 27L15 37" stroke="#ff8787" strokeWidth="4" strokeLinecap="round" />
-          </svg>
+      <header className="relative overflow-hidden bg-gradient-to-r from-[#14264a] via-[#1f3b6e] to-[#2a4c8a] text-white shadow-md">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '28px 28px' }}
+        />
+        <div className="relative mx-auto flex max-w-[1880px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-6">
+          <Logo size={40} />
           <div className="min-w-0">
-            <h1 className="text-lg font-bold leading-tight sm:text-xl">Root Locus Studio</h1>
-            <p className="text-[12.5px] font-medium text-blue-100 sm:text-[13px]">Designed by Kaleem Ullah (CE-45 A)</p>
+            <h1 className="text-xl font-bold leading-tight tracking-tight sm:text-[22px]">Root Locus Studio</h1>
+            <p className="text-[12.5px] text-blue-100 sm:text-[13px]">
+              Developed by <span className="font-semibold text-white">Kaleem Ullah</span>
+              <span className="ml-1.5 rounded bg-white/15 px-1.5 py-0.5 text-[11.5px] font-medium">CE-45 A</span>
+            </p>
           </div>
+          <ul className="hidden items-center gap-1.5 text-[11.5px] font-medium text-blue-100 xl:flex" aria-label="Highlights">
+            {['7-rule method R1–R7', 'Exact Routh array', 'Verified vs python-control'].map((t) => (
+              <li key={t} className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1">
+                {t}
+              </li>
+            ))}
+          </ul>
           <div className="no-print ml-auto flex flex-wrap gap-2">
-            <button type="button" onClick={copyLink} className="rounded-md border border-white/40 px-3 py-1.5 text-sm font-medium hover:bg-white/10">
+            <button type="button" onClick={copyLink} className="rounded-lg border border-white/30 bg-white/5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/15">
               Copy link
             </button>
-            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-navy hover:bg-blue-50 disabled:opacity-60">
+            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-lg bg-white px-3.5 py-1.5 text-sm font-semibold text-navy shadow transition-colors hover:bg-blue-50 disabled:opacity-60">
               {exporting ? 'Building PDF…' : 'Export PDF'}
             </button>
-            <button type="button" onClick={() => window.print()} className="rounded-md border border-white/40 px-3 py-1.5 text-sm font-medium hover:bg-white/10">
+            <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/30 bg-white/5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/15">
               Print
             </button>
           </div>
@@ -411,9 +422,7 @@ export default function App() {
           </div>
         </div>
       )}
-      <footer className="no-print mx-auto max-w-[1880px] px-6 pb-6 text-center text-[12px] text-slate-600">
-        Root Locus Studio · designed by Kaleem Ullah (CE-45 A) · exact engine verified against python-control
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

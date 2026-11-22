@@ -61,6 +61,17 @@ Netlify works the same way (build `npm run build`, publish `dist`). For GitHub P
 - **Export PDF** produces an A4-landscape handout (table, Routh array, plot with legend).
 - The examples list contains every shape (a)–(p) of the book's **Table 4.2 "Some Root Locus Plots"**, with numbers chosen to reproduce each sketch, plus more classic shapes and the special Routh cases.
 
+## Credits
+- **Developed by** Kaleem Ullah (CE-45 A)
+- **Supervised by** Prof. Dr. Atif Qayyum
+- **Emotional support by** Dawood Ali Khan
+
+## Contact
+Found a bug, error or inconsistency, or interested in collaboration and joint projects? Get in touch:
+- Email: kullah.ce45ceme@student.nust.edu.pk
+- GitHub: https://github.com/kaleemullah6698
+- LinkedIn: https://www.linkedin.com/in/kaleem-ullah-3b8663299
+
 ## Known limitations
 - Time delays (e^{−sT}) and symbolic parameters other than K are out of scope. Coefficients must be numbers (decimals are converted to exact rationals).
 - Displayed values are rounded to 3–4 decimals. Internally, exact or about 1e-10.
