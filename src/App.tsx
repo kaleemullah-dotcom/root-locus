@@ -18,6 +18,7 @@ import { KControl, kRange, type SimStatus } from './components/KControl';
 const TeachMode = lazy(() => import('./components/TeachMode').then((m) => ({ default: m.TeachMode })));
 import { Tex } from './components/Tex';
 import { Logo, SiteFooter } from './components/SiteFooter';
+import { PdfDocument } from './components/PdfDocument';
 import { useIdleReady, useMediaQuery, useNearViewport } from './lib/hooks';
 
 type View = 'solution' | 'teach';
@@ -71,7 +72,6 @@ export default function App() {
   const [exporting, setExporting] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const plotRef = useRef<MainPlotHandle>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
   const plotSection = useRef<HTMLElement>(null);
   const [plotVisible, setPlotVisible] = useState(false);
 
@@ -156,19 +156,23 @@ export default function App() {
       flash('Copy failed — use the address bar.');
     }
   };
-  const doPdf = async (): Promise<void> => {
-    if (!sol) return;
-    setExporting(true);
-    await new Promise((r) => setTimeout(r, 120));
-    try {
-      if (exportRef.current) await exportPdf(exportRef.current, 'root-locus-solution.pdf', title.replace('Root locus of ', ''));
-      flash('PDF downloaded.');
-    } catch (e) {
-      flash(`PDF export failed: ${(e as Error).message}`);
-    } finally {
-      setExporting(false);
-    }
+  const doPdf = (): void => {
+    if (!sol || exporting) return;
+    setExporting(true); // mounts <PdfDocument>, which calls onPdfReady when laid out
   };
+  const onPdfReady = useCallback(
+    async (root: HTMLElement): Promise<void> => {
+      try {
+        await exportPdf(root, 'root-locus-solution.pdf', { title: title.replace('Root locus of ', ''), author: 'Kaleem Ullah' });
+        flash('PDF downloaded.');
+      } catch (e) {
+        flash(`PDF export failed: ${(e as Error).message}`);
+      } finally {
+        setExporting(false);
+      }
+    },
+    [title],
+  );
 
   const tfTex = useMemo(() => {
     if (!sol) return '';
@@ -182,7 +186,7 @@ export default function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Skip to solution
       </a>
-      <header className="relative border-b-2 border-amber-400/80 bg-[#0f2347] text-white shadow-[0_4px_18px_rgba(10,23,48,0.35)]">
+      <header className="relative border-b-[3px] border-[#1b7a43] bg-[#0f2347] text-white shadow-[0_4px_18px_rgba(10,23,48,0.35)]">
         <div className="mx-auto flex max-w-[1880px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-6">
           <Logo size={46} id="rl-head" />
           <div className="min-w-0">
@@ -196,7 +200,7 @@ export default function App() {
             <button type="button" onClick={copyLink} className="rounded-lg border border-white/25 px-3.5 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-white/50 hover:bg-white/10">
               Copy link
             </button>
-            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-lg bg-gradient-to-b from-amber-300 to-amber-400 px-4 py-2 text-sm font-semibold text-[#0a1730] shadow transition hover:from-amber-200 hover:to-amber-300 disabled:opacity-60">
+            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-lg bg-[#1b7a43] px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-[#166638] disabled:opacity-60">
               {exporting ? 'Building PDF…' : 'Export PDF'}
             </button>
             <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/25 px-3.5 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-white/50 hover:bg-white/10">
@@ -390,24 +394,18 @@ export default function App() {
       )}
 
       {exporting && sol && solShown && (
-        <div ref={exportRef} aria-hidden style={{ position: 'fixed', left: -20000, top: 0, width: 1500, background: '#fff' }}>
-          <div data-pdf-page="Rule table" style={{ padding: 8 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6 }}>
-              <Tex tex={tfTex} />
-            </h2>
-            <RuleTable sol={sol} rows={rows} selected={null} onSelect={() => undefined} tableOnly locus={solShown.locus} />
-          </div>
-          <div data-pdf-page="Routh array" style={{ padding: 8, width: 1100 }}>
-            <RouthPanel sol={sol} />
-          </div>
-          <div data-pdf-page="Root locus" style={{ display: 'flex', gap: 16, padding: 8 }}>
-            <div style={{ width: 900 }}>
-              <MainPlot sol={solShown} solNeg={solNeg} kMode={kMode} baseView={plotView ?? undefined} title={title} fixedWidth={900} pdfVector bare />
-            </div>
-            <div data-pdf-side style={{ width: 460 }}>
-              <LegendPanel sol={sol} rows={rows} />
-            </div>
-          </div>
+        <div aria-hidden style={{ position: 'fixed', left: -20000, top: 0, background: '#fff' }}>
+          <PdfDocument
+            sol={sol}
+            solShown={solShown}
+            solNeg={solNeg}
+            kMode={kMode}
+            plotView={plotView ?? undefined}
+            rows={rows}
+            title={title}
+            tfTex={tfTex}
+            onReady={(el) => void onPdfReady(el)}
+          />
         </div>
       )}
       <SiteFooter />

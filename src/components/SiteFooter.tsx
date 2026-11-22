@@ -10,7 +10,7 @@ export const CONTACT = {
 
 /**
  * Brand mark: a light tile (contrasts with the navy header/footer) showing an s-plane with
- * amber root-locus branches leaving a red pole and a navy zero.
+ * dark-green root-locus branches leaving a red pole and a navy zero.
  */
 export function Logo({ size = 40, id = 'rl' }: { size?: number; id?: string }) {
   return (
@@ -21,8 +21,8 @@ export function Logo({ size = 40, id = 'rl' }: { size?: number; id?: string }) {
           <stop offset="1" stopColor="#e7edf7" />
         </linearGradient>
         <linearGradient id={`${id}-locus`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fcc419" />
-          <stop offset="1" stopColor="#f76707" />
+          <stop offset="0" stopColor="#2f9e44" />
+          <stop offset="1" stopColor="#14532d" />
         </linearGradient>
       </defs>
       <rect x="1" y="1" width="62" height="62" rx="15" fill={`url(#${id}-tile)`} stroke="#ffffff" strokeOpacity="0.6" />
@@ -82,12 +82,12 @@ function Icon({ kind }: { kind: 'github' | 'linkedin' | 'mail' | 'check' | 'hand
 
 const link =
   'inline-flex items-center gap-2.5 text-slate-300 underline-offset-4 transition-colors hover:text-white hover:underline focus-visible:text-white';
-const heading = 'text-[12px] font-semibold uppercase tracking-[0.16em] text-amber-300/90';
+const heading = 'text-[12px] font-semibold uppercase tracking-[0.16em] text-emerald-300/90';
 
 export function SiteFooter() {
   const year = new Date().getFullYear();
   return (
-    <footer className="no-print mt-8 border-t-2 border-amber-400/80 bg-[#0a1730] text-slate-200" aria-labelledby="footer-heading">
+    <footer className="no-print mt-8 border-t-[3px] border-[#1b7a43] bg-[#0a1730] text-slate-200" aria-labelledby="footer-heading">
       <h2 id="footer-heading" className="sr-only">
         About, credits and contact
       </h2>
@@ -116,11 +116,11 @@ export function SiteFooter() {
               <span className="font-semibold text-white">Tested and built following best practices.</span> The maths engine is verified
               against python-control, with automated unit, browser and accessibility checks. Found a bug, error or inconsistency?
               Please report it on{' '}
-              <a className="font-medium text-white underline underline-offset-4 hover:text-amber-200" href={CONTACT.github} target="_blank" rel="noopener noreferrer">
+              <a className="font-medium text-white underline underline-offset-4 hover:text-emerald-200" href={CONTACT.github} target="_blank" rel="noopener noreferrer">
                 GitHub
               </a>{' '}
               or by{' '}
-              <a className="font-medium text-white underline underline-offset-4 hover:text-amber-200" href={`mailto:${CONTACT.email}?subject=Bug%20report%20-%20Root%20Locus%20Studio`}>
+              <a className="font-medium text-white underline underline-offset-4 hover:text-emerald-200" href={`mailto:${CONTACT.email}?subject=Bug%20report%20-%20Root%20Locus%20Studio`}>
                 email
               </a>
               .
@@ -134,11 +134,11 @@ export function SiteFooter() {
             Acknowledgements
           </h3>
           <dl className="mt-4 space-y-4 text-[14px]">
-            <div className="border-l-2 border-amber-400/60 pl-3">
+            <div className="border-l-2 border-emerald-500/70 pl-3">
               <dt className="text-[12.5px] text-slate-400">Supervised by</dt>
               <dd className="font-semibold text-white">Prof. Dr. Atif Qayyum</dd>
             </div>
-            <div className="border-l-2 border-amber-400/60 pl-3">
+            <div className="border-l-2 border-emerald-500/70 pl-3">
               <dt className="text-[12.5px] text-slate-400">Emotional support by</dt>
               <dd className="font-semibold text-white">Dawood Ali Khan</dd>
             </div>
@@ -172,9 +172,9 @@ export function SiteFooter() {
           </ul>
 
           <div className="relative mt-6 overflow-hidden rounded-2xl border border-white/15 bg-gradient-to-br from-white/[0.10] to-white/[0.03] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.35)] ring-1 ring-inset ring-white/5 backdrop-blur-md">
-            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-amber-400/20 blur-2xl" />
+            <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-500/20 blur-2xl" />
             <div className="relative flex items-start gap-3.5">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-amber-300 to-orange-500 text-[#0a1730] shadow-lg">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-green-800 text-white shadow-lg">
                 <Icon kind="handshake" />
               </span>
               <div>
@@ -184,7 +184,7 @@ export function SiteFooter() {
                 </p>
                 <a
                   href={`mailto:${CONTACT.email}?subject=Collaboration%20-%20Root%20Locus%20Studio`}
-                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-[13px] font-semibold text-[#0a1730] shadow transition hover:bg-amber-100"
+                  className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3.5 py-2 text-[13px] font-semibold text-[#0a1730] shadow transition hover:bg-emerald-50"
                 >
                   <Icon kind="mail" />
                   Get in touch

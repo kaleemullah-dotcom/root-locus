@@ -3,7 +3,7 @@ import { polyTex, routhEntryTex, fnum, fcomplex } from '../engine/latex';
 import { charEqTex, conditionLines, stabilityText } from '../lib/content';
 import { Lines, MathText, Tex } from './Tex';
 
-export function RouthPanel({ sol }: { sol: Solution }) {
+export function RouthPanel({ sol, print = false }: { sol: Solution; print?: boolean }) {
   const { routh, cross } = sol;
   const lastNonZero = (row: (typeof routh.rows)[number]): number => {
     let k = row.entries.length;
@@ -85,7 +85,7 @@ export function RouthPanel({ sol }: { sol: Solution }) {
             ))}
           </div>
         )}
-        <details className="text-[12.5px] text-slate-600">
+        <details className="text-[12.5px] text-slate-600" open={print}>
           <summary className="cursor-pointer select-none font-medium text-navy">How the K ranges were verified</summary>
           <p className="mt-1">
             Each interval between candidate boundaries was tested exactly with a rational K (Routh–Hurwitz over the rationals),
