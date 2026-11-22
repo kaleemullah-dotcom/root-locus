@@ -182,36 +182,24 @@ export default function App() {
       <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2">
         Skip to solution
       </a>
-      <header className="relative overflow-hidden bg-gradient-to-r from-[#14264a] via-[#1f3b6e] to-[#2a4c8a] text-white shadow-md">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-[0.07]"
-          style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '28px 28px' }}
-        />
-        <div className="relative mx-auto flex max-w-[1880px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-6">
-          <Logo size={40} />
+      <header className="relative border-b-2 border-amber-400/80 bg-[#0f2347] text-white shadow-[0_4px_18px_rgba(10,23,48,0.35)]">
+        <div className="mx-auto flex max-w-[1880px] flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 sm:px-6">
+          <Logo size={46} id="rl-head" />
           <div className="min-w-0">
-            <h1 className="text-xl font-bold leading-tight tracking-tight sm:text-[22px]">Root Locus Studio</h1>
-            <p className="text-[12.5px] text-blue-100 sm:text-[13px]">
+            <h1 className="text-[22px] font-bold leading-tight tracking-tight sm:text-[24px]">Root Locus Studio</h1>
+            <p className="mt-0.5 text-[13px] text-slate-300">
               Developed by <span className="font-semibold text-white">Kaleem Ullah</span>
-              <span className="ml-1.5 rounded bg-white/15 px-1.5 py-0.5 text-[11.5px] font-medium">CE-45 A</span>
+              <span className="ml-1.5 rounded border border-white/20 px-1.5 py-px text-[11.5px] font-medium text-slate-200">CE-45 A</span>
             </p>
           </div>
-          <ul className="hidden items-center gap-1.5 text-[11.5px] font-medium text-blue-100 xl:flex" aria-label="Highlights">
-            {['7-rule method R1–R7', 'Exact Routh array', 'Verified vs python-control'].map((t) => (
-              <li key={t} className="rounded-full border border-white/20 bg-white/5 px-2.5 py-1">
-                {t}
-              </li>
-            ))}
-          </ul>
           <div className="no-print ml-auto flex flex-wrap gap-2">
-            <button type="button" onClick={copyLink} className="rounded-lg border border-white/30 bg-white/5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/15">
+            <button type="button" onClick={copyLink} className="rounded-lg border border-white/25 px-3.5 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-white/50 hover:bg-white/10">
               Copy link
             </button>
-            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-lg bg-white px-3.5 py-1.5 text-sm font-semibold text-navy shadow transition-colors hover:bg-blue-50 disabled:opacity-60">
+            <button type="button" onClick={doPdf} disabled={!sol || exporting} className="rounded-lg bg-gradient-to-b from-amber-300 to-amber-400 px-4 py-2 text-sm font-semibold text-[#0a1730] shadow transition hover:from-amber-200 hover:to-amber-300 disabled:opacity-60">
               {exporting ? 'Building PDF…' : 'Export PDF'}
             </button>
-            <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/30 bg-white/5 px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/15">
+            <button type="button" onClick={() => window.print()} className="rounded-lg border border-white/25 px-3.5 py-2 text-sm font-medium text-slate-100 transition-colors hover:border-white/50 hover:bg-white/10">
               Print
             </button>
           </div>
