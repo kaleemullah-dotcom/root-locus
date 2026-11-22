@@ -65,6 +65,7 @@ export default function App() {
   const [selected, setSelected] = useState<RuleId | null>(null);
   const [K, setK] = useState<number>(1);
   const [playing, setPlaying] = useState(false);
+  const [lastSolved, setLastSolved] = useState<TFInput | null>(null);
   const [simStatus, setSimStatus] = useState<SimStatus | null>(null);
   const [kMode, setKModeRaw] = useState<KMode>('pos');
   const [view, setView] = useState<View>('solution');
@@ -84,8 +85,9 @@ export default function App() {
       setPlaying(false);
       setTeachStep(0);
       setK(defaultK(r.sol));
-      const h = inputToHash(inp);
-      if (window.location.hash !== h) window.history.replaceState(null, '', h);
+      setLastSolved(inp);
+      // keep the address bar clean: only the root URL (a shared #tf= link is read once, then removed)
+      if (window.location.hash) window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   }, []);
 
@@ -150,7 +152,8 @@ export default function App() {
   };
   const copyLink = async (): Promise<void> => {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const base = window.location.origin + window.location.pathname;
+      await navigator.clipboard.writeText(lastSolved ? base + inputToHash(lastSolved) : base);
       flash('Link copied — it opens this exact transfer function.');
     } catch {
       flash('Copy failed — use the address bar.');

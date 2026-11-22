@@ -2,7 +2,8 @@ import { memo, useId } from 'react';
 import type { Complex, Solution, ViewBox } from '../engine';
 import { autoView, featureBox } from '../engine/view';
 import type { RuleId } from '../lib/content';
-import { COL, arrowHead, branchPath, makePlane, type Plane } from '../plot/plane';
+import { COL, LabelPlacer, arrowHead, branchPath, makePlane, type Plane } from '../plot/plane';
+import { fcomplex, tnum } from '../engine/latex';
 import { rich } from './MainPlot';
 
 const W = 176,
@@ -122,15 +123,38 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
   const v = P.view;
   if (v.y0 < 0 && v.y1 > 0) out.push(<line key="ax" x1={0} x2={W} y1={P.Y(0)} y2={P.Y(0)} stroke="#495057" strokeWidth={0.8} />);
   if (v.x0 < 0 && v.x1 > 0) out.push(<line key="ay" x1={P.X(0)} x2={P.X(0)} y1={0} y2={H} stroke="#495057" strokeWidth={0.8} />);
+  // value labels (overlap-free): pole/zero locations, angles, centroid, break points, crossings
+  const L = new LabelPlacer(P);
+  const marks: Array<() => void> = [];
+  const FS = 9.5;
+  const inV = (z: Complex): boolean => z.re >= v.x0 && z.re <= v.x1 && z.im >= v.y0 && z.im <= v.y1;
+  const reserveAll = (): void => {
+    [...sol.ol.poles, ...sol.ol.zeros].forEach((z) => L.reservePoint(P.X(z.re), P.Y(z.im), 5));
+  };
+  const lab = (z: Complex, text: string, color = '#1f2937', prefer: Array<[number, number]> = []): void => {
+    if (inV(z)) marks.push(() => L.add(P.X(z.re), P.Y(z.im), text, color, FS, prefer));
+  };
   let desc = '';
   switch (rule) {
-    case 'R1':
-      pz(sol, P, out, true);
-      desc = 'Open-loop poles (crosses) and zeros (circles).';
+    case 'R1': {
+      pz(sol, P, out, false);
+      let pi = 0,
+        zi = 0;
+      sol.ol.polesM.forEach((r) => {
+        const names = Array.from({ length: r.mult }, () => `P_${++pi}`).join(',');
+        lab(r.z, `${names} = ${fcomplex(r.z, 2, true)}`, '#1f2937', [[-10, -6]]);
+      });
+      sol.ol.zerosM.forEach((r) => {
+        const names = Array.from({ length: r.mult }, () => `z_${++zi}`).join(',');
+        lab(r.z, `${names} = ${fcomplex(r.z, 2, true)}`, '#1f2937', [[-10, 13]]);
+      });
+      desc = 'Open-loop poles (crosses) and zeros (circles) with their locations.';
       break;
+    }
     case 'R2':
       segments(sol, P, out, true);
       pz(sol, P, out, false);
+      sol.r2.crit.forEach((x, i) => lab({ re: x, im: 0 }, tnum(x, 2), '#1f2937', [[-6, i % 2 ? -7 : 14]]));
       desc = 'Real-axis segments with arrows for increasing K.';
       break;
     case 'R3': {
@@ -138,6 +162,18 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
       pz(sol, P, out, false);
       const a0 = sol.r3.angles.map((a) => a.deg).filter((d) => d > 1e-9 && d < 180 - 1e-9).sort((x, y) => x - y)[0];
       if (a0 !== undefined && sol.r4.sigma !== null) miniArc(P, { re: sol.r4.sigma, im: 0 }, a0, COL.asym, out, 'r3arc', 14);
+      if (sol.r4.sigma !== null) {
+        const sg0 = sol.r4.sigma;
+        const rr = 0.3 * (v.x1 - v.x0);
+        const seen = new Set<string>();
+        sol.r3.angles.forEach((a) => {
+          const key = a.deg.toFixed(3);
+          if (seen.has(key)) return;
+          seen.add(key);
+          const t = (a.deg * Math.PI) / 180;
+          lab({ re: sg0 + rr * Math.cos(t), im: rr * Math.sin(t) }, `${tnum(a.deg, 1)}°`, '#c2410c', [[3, a.deg < 0 ? 10 : -3]]);
+        });
+      }
       desc = 'Asymptotes with the angle measured from the positive real axis.';
       break;
     }
@@ -148,6 +184,8 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
         const x = P.X(sol.r4.sigma),
           y = P.Y(0);
         out.push(<rect key="c" x={x - 3.8} y={y - 3.8} width={7.6} height={7.6} transform={`rotate(45 ${x} ${y})`} fill={COL.asym} />);
+        L.reservePoint(x, y, 5);
+        lab({ re: sol.r4.sigma, im: 0 }, `σ = ${tnum(sol.r4.sigma, 2)}`, '#c2410c', [[-18, 14]]);
       }
       desc = 'Centroid of the asymptotes.';
       break;
@@ -160,6 +198,8 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
         .forEach((c, i) => {
           const x = c.s.re;
           out.push(<circle key={`b${i}`} cx={P.X(x)} cy={P.Y(0)} r={3.6} fill={COL.brk} stroke="#fff" strokeWidth={1} />);
+          L.reservePoint(P.X(x), P.Y(0), 5);
+          lab({ re: x, im: 0 }, `${c.kind === 'entry' ? 's_e' : 's_b'} = ${tnum(x, 2)}`, '#1e6b30', [[4, 14]]);
           if (c.kind !== 'breakaway' && c.kind !== 'entry') return;
           [1, -1].forEach((sg) => {
             const tip = c.kind === 'breakaway' ? sg * h : sg * h * 0.3;
@@ -193,6 +233,18 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
         });
       sol.r6.departures.forEach((d, i) => d.angles.forEach((a, j) => draw(d.at, a, false, `d${i}-${j}`)));
       sol.r6.arrivals.forEach((d, i) => d.angles.forEach((a, j) => draw(d.at, a, true, `r${i}-${j}`)));
+      sol.r6.departures
+        .filter((d) => d.at.im > 0)
+        .forEach((d) => {
+          lab(d.at, `θ_d = ${tnum(d.angles[0], 1)}°`, '#1d4ed8', [[6, -5]]);
+          lab({ re: d.at.re, im: -d.at.im }, `θ_d = ${tnum(-d.angles[0], 1)}°`, '#1d4ed8', [[6, 12]]);
+        });
+      sol.r6.arrivals
+        .filter((d) => d.at.im > 0)
+        .forEach((d) => {
+          lab(d.at, `θ_a = ${tnum(d.angles[0], 1)}°`, '#1d4ed8', [[6, -5]]);
+          lab({ re: d.at.re, im: -d.at.im }, `θ_a = ${tnum(-d.angles[0], 1)}°`, '#1d4ed8', [[6, 12]]);
+        });
       desc = 'Angles of departure / arrival.';
       break;
     }
@@ -209,16 +261,31 @@ export const MiniSketch = memo(function MiniSketch({ sol, rule, locus }: { sol: 
           out.push(<circle key={`x${i}${sg}`} cx={P.X(0)} cy={P.Y(sg * c.omega)} r={3.6} fill={COL.cross} stroke="#fff" strokeWidth={1} />),
         ),
       );
+      sol.cross.crossings.forEach((c) => {
+        L.reservePoint(P.X(0), P.Y(c.omega), 5);
+        L.reservePoint(P.X(0), P.Y(-c.omega), 5);
+        lab({ re: 0, im: c.omega }, `±j${tnum(c.omega, 2)}, K_x = ${tnum(c.K, 2)}`, '#6b21a8', [[5, -5]]);
+      });
       desc = 'Complete root locus with jω crossings.';
       break;
   }
+  reserveAll();
+  marks.forEach((f) => f());
+  const labelEls = L.placed.map((l, i) => (
+    <text key={`lb${i}`} x={l.x} y={l.y} fontSize={l.size} fill={l.color} stroke="#fff" strokeWidth={2.4} paintOrder="stroke" strokeLinejoin="round">
+      {rich(l.text)}
+    </text>
+  ));
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto block h-auto w-full max-w-[176px]" xmlns="http://www.w3.org/2000/svg" role="img" aria-label={`${rule} sketch: ${desc}`} fontFamily="Inter, Arial, sans-serif">
       <rect x={0.5} y={0.5} width={W - 1} height={H - 1} fill="#fff" stroke="#ced4da" rx={3} />
       <clipPath id={`mc-${uid}`}>
         <rect x={1} y={1} width={W - 2} height={H - 2} />
       </clipPath>
-      <g clipPath={`url(#mc-${uid})`}>{out}</g>
+      <g clipPath={`url(#mc-${uid})`}>
+        {out}
+        {labelEls}
+      </g>
     </svg>
   );
 });

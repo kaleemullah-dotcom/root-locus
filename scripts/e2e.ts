@@ -38,8 +38,8 @@ try {
     const txt = await page.locator('table.rl').innerText();
     assert(txt.includes('13.128') && txt.includes('180'), 'expected K_brk 13.128 and K_x 180 in the table');
   });
-  await check('URL hash holds the transfer function', async () => {
-    assert(page.url().includes('#tf='), page.url());
+  await check('address bar shows only the root URL', async () => {
+    assert(!page.url().includes('#'), page.url());
   });
   await check('invalid input shows an error', async () => {
     await page.fill('#den', 's(s+1');
@@ -142,6 +142,7 @@ try {
     const p2 = await ctx.newPage();
     await p2.goto(`${base}#tf=${encodeURIComponent('K/(s(s+3)(s^2+2s+2))')}`);
     await p2.waitForFunction(() => document.querySelector('table.rl')?.textContent?.includes('8.16'));
+    assert(!p2.url().includes('#'), `hash should be cleared: ${p2.url()}`);
     await p2.close();
   });
   await check('mobile 390px: cards, no horizontal scroll', async () => {
