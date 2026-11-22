@@ -136,7 +136,7 @@ export function SiteFooter() {
           <dl className="mt-4 space-y-4 text-[14px]">
             <div className="border-l-2 border-emerald-500/70 pl-3">
               <dt className="text-[12.5px] text-slate-400">Supervised by</dt>
-              <dd className="font-semibold text-white">Prof. Dr. Atif Qayyum</dd>
+              <dd className="font-semibold text-white">Lt. Col. Dr. Atif Qayyum</dd>
             </div>
             <div className="border-l-2 border-emerald-500/70 pl-3">
               <dt className="text-[12.5px] text-slate-400">Emotional support by</dt>

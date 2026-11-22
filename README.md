@@ -63,7 +63,7 @@ Netlify works the same way (build `npm run build`, publish `dist`). For GitHub P
 
 ## Credits
 - **Developed by** Kaleem Ullah (CE-45 A)
-- **Supervised by** Prof. Dr. Atif Qayyum
+- **Supervised by** Lt. Col. Dr. Atif Qayyum
 - **Emotional support by** Dawood Ali Khan
 
 ## Contact
